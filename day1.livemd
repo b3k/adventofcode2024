@@ -1,0 +1,46 @@
+# Day 1: Historian Hysteria
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input) |> String.split("\n", trim: true)
+```
+
+## Part 1
+
+```elixir
+lists = Enum.reduce(input, %{left: [], right: []}, fn (item, %{left: left, right: right}) -> 
+  [l, r] = String.split(item, " ", trim: true) |> Enum.map(&(String.to_integer(&1)))
+  %{left: [l | left], right: [r | right]}
+end)
+
+Enum.zip([Enum.sort(lists.left), Enum.sort(lists.right)]) |> 
+Enum.map(fn 
+  {l, r} when r > l -> r - l
+  {l, r} when l <= r -> l - r
+end) |> 
+Enum.sum()
+
+
+```
+
+## Part 2
+
+```elixir
+%{left: left, right: right} = Enum.reduce(input, %{left: [], right: []}, fn (item, %{left: left, right: right}) -> 
+  [l, r] = String.split(item, " ", trim: true) |> Enum.map(&(String.to_integer(&1)))
+  %{left: [l | left], right: [r | right]}
+end)
+
+Enum.reduce(left, 0, fn (left_item, acc) -> 
+  acc + Enum.count(right, fn i -> left_item == i end) * left_item
+end)
+```
