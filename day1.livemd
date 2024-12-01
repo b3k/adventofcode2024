@@ -25,7 +25,7 @@ end)
 Enum.zip([Enum.sort(lists.left), Enum.sort(lists.right)]) |> 
 Enum.map(fn 
   {l, r} when r > l -> r - l
-  {l, r} when l <= r -> l - r
+  {l, r} when r <= l -> l - r
 end) |> 
 Enum.sum()
 
