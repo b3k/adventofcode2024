@@ -1,0 +1,62 @@
+# Day 2: Red-Nosed Reports
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input) |> String.split("\n", trim: true) |> Enum.map(fn item -> 
+  String.split(item, " ", trim: true) |> Enum.map(&(String.to_integer(&1)))
+end)
+```
+
+## Part 1
+
+```elixir
+is_valid? = fn results ->
+  in_range = Enum.all?(results, fn(i) -> Kernel.abs(i) in 1..3 end)
+  all_inc = Enum.all?(results, fn(i) -> i > 0 end)
+  all_dec = Enum.all?(results, fn(i) -> i < 0 end)
+  in_range && (all_inc || all_dec) 
+end
+
+for report <- input do
+  results = Enum.chunk_every(report, 2, 1, :discard)
+  |> Enum.map(fn([left, right]) -> 
+      left - right
+  end)
+  
+  if is_valid?.(results), do: 1, else: 0
+end |> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+is_valid? = fn results ->
+  in_range = Enum.all?(results, fn(i) -> Kernel.abs(i) in 1..3 end)
+  all_inc = Enum.all?(results, fn(i) -> i > 0 end)
+  all_dec = Enum.all?(results, fn(i) -> i < 0 end)
+  in_range && (all_inc || all_dec) 
+end
+
+for report <- input do
+  Enum.map(0..length(report)-1, fn(drop_item) ->
+    trun_report = List.delete_at(report, drop_item)
+    results = Enum.chunk_every(trun_report, 2, 1, :discard)
+    |> Enum.map(fn([left, right]) -> 
+      left - right
+    end)
+    if is_valid?.(results), do: 1, else: 0
+  end)
+  |> Enum.any?(&(&1 == 1))
+  |> Kernel.if(do: 1, else: 0)
+  
+end |> Enum.sum()
+```
