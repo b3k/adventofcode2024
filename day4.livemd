@@ -1,0 +1,80 @@
+# Day 4: Ceres Search
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+
+splitted = String.split(input, "\n", trim: true)
+cols = String.length(hd(splitted))
+rows = length(splitted)
+
+get_pos = fn(pos_map, x, y) ->
+  pos_map["#{x}:#{y}"]
+end
+
+pos_map = for x <- 1..cols, y <- 1..rows, into: %{} do
+  {"#{x}:#{y}", String.at(Enum.at(splitted, y-1), x-1)}
+end
+
+for x <- 1..cols, y <- 1..rows, pos_map["#{x}:#{y}"] == "X" do
+  for xd <- [-1, 0, 1], yd <- [-1, 0, 1], 
+    !(xd == 0 && yd == 0), 
+    !(y + 1 * yd > rows), 
+    !(x + 1 * xd > cols), 
+    !(x + 1 * xd < 1),
+    !(y + 1 * yd < 1)
+  do
+    if "X#{get_pos.(pos_map, x + 1 * xd, y + 1 * yd)}#{get_pos.(pos_map, x + 2 * xd, y + 2 * yd)}#{get_pos.(pos_map, x + 3 * xd, y + 3 * yd)}" == "XMAS" do
+      1
+    else
+      0
+    end
+  end
+end
+|> List.flatten()
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+
+splitted = String.split(input, "\n", trim: true)
+cols = String.length(hd(splitted))
+rows = length(splitted)
+
+get_pos = fn(pos_map, x, y) ->
+  pos_map["#{x}:#{y}"]
+end
+
+pos_map = for x <- 1..cols, y <- 1..rows, into: %{} do
+  {"#{x}:#{y}", String.at(Enum.at(splitted, y-1), x-1)}
+end
+
+for x <- 1..cols, y <- 1..rows, pos_map["#{x}:#{y}"] == "A" do
+  phr1 = "#{get_pos.(pos_map, x + 1 * -1, y + 1 * 1)}#{get_pos.(pos_map, x + 1 * 1, y + 1 * -1)}" |>String.split("", trim: true) |> Enum.sort() |> List.to_string()  
+  phr2 = "#{get_pos.(pos_map, x + 1 * -1, y + 1 * -1)}#{get_pos.(pos_map, x + 1 * 1, y + 1 * 1)}" |>String.split("", trim: true) |> Enum.sort() |> List.to_string()
+  if(phr1 == "MS" && phr2 == "MS", do: 1, else: 0)
+end
+|> Enum.sum()
+```
+
+```elixir
+a = 1
+b = 1
+IO.inspect(1 == a)
+```

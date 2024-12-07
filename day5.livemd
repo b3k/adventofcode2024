@@ -1,0 +1,97 @@
+# Day 5: Print Queue
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+[ordering, updates] = String.split(input, "\n\n") |> Enum.map(&(String.split(&1, "\n")))
+parsed_ordering = Enum.reduce(ordering, %{}, fn (item, acc) -> 
+  String.split(item, "|") 
+  |> Enum.map(&(String.to_integer(&1)))
+  |> then(fn([left, right]) -> 
+    {_, acc} = Map.get_and_update(acc, left, fn 
+      nil -> {nil, %{after: [right], before: []}}
+      list = %{after: list_after, before: list_before} when is_list(list_after) and is_list(list_before) -> {list, %{after: [right | list_after], before: list_before}}
+    end)
+    {_, acc} = Map.get_and_update(acc, right, fn 
+      nil -> {nil, %{after: [], before: [left]}}
+      list = %{after: list_after, before: list_before} when is_list(list_after) and is_list(list_before) -> {list, %{before: [left | list_before], after: list_after}}
+    end)
+    acc
+  end)
+end)
+Enum.map(updates, fn item -> 
+  String.split(item, ",") |> Enum.map(&(String.to_integer(&1)))
+end)
+|> Enum.reduce([], fn(update_line, acc) -> 
+  {_, valid_updates} = Enum.reduce(update_line, {0, 0}, fn(num, {curr_num, valid_updates}) ->  
+    valid_before = Enum.slice(update_line, 0..(if(curr_num == 0, do: length(update_line)*-1, else: curr_num) - 1)//1)
+    |> Enum.all?(fn(i) -> i in parsed_ordering[num][:before] end)
+    valid_after = Enum.slice(update_line, (curr_num + 1)..-1//1)
+    |> Enum.all?(fn(i) -> i in parsed_ordering[num][:after] end)
+    {curr_num + 1, valid_updates + (if(valid_before && valid_after, do: 1, else: 0))}
+  end)
+  [if(valid_updates == length(update_line), do: Enum.at(update_line, Float.floor(length(update_line)/2) |> trunc()), else: 0) | acc]
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+
+[ordering, updates] = String.split(input, "\n\n") |> Enum.map(&(String.split(&1, "\n")))
+parsed_ordering = Enum.reduce(ordering, %{}, fn (item, acc) -> 
+  String.split(item, "|") 
+  |> Enum.map(&(String.to_integer(&1)))
+  |> then(fn([left, right]) -> 
+    {_, acc} = Map.get_and_update(acc, left, fn 
+      nil -> {nil, %{after: [right], before: []}}
+      list = %{after: list_after, before: list_before} when is_list(list_after) and is_list(list_before) -> {list, %{after: [right | list_after], before: list_before}}
+    end)
+    {_, acc} = Map.get_and_update(acc, right, fn 
+      nil -> {nil, %{after: [], before: [left]}}
+      list = %{after: list_after, before: list_before} when is_list(list_after) and is_list(list_before) -> {list, %{before: [left | list_before], after: list_after}}
+    end)
+    acc
+  end)
+end)
+
+into_list = fn(elem, list) ->
+  [elem | list]
+end
+
+Enum.map(updates, fn item -> 
+  String.split(item, ",") |> Enum.map(&(String.to_integer(&1)))
+end)
+|> Enum.reduce([], fn(update_line, acc) -> 
+  {_, valid_updates} = Enum.reduce(update_line, {0, 0}, fn(num, {curr_num, valid_updates}) -> 
+    valid_before = Enum.slice(update_line, 0..(if(curr_num == 0, do: length(update_line)*-1, else: curr_num) - 1)//1)
+    |> Enum.all?(fn(i) -> i in parsed_ordering[num][:before] end)
+    valid_after = Enum.slice(update_line, (curr_num + 1)..-1//1)
+    |> Enum.all?(fn(i) -> i in parsed_ordering[num][:after] end)
+    {curr_num + 1, valid_updates + (if(valid_before && valid_after, do: 1, else: 0))}
+  end)
+    if valid_updates != length(update_line) do
+      Enum.sort(update_line, fn(left, right) -> left in parsed_ordering[right][:before] end)
+      |> Enum.at(Float.floor(length(update_line)/2) |> trunc())
+      |> into_list.(acc)
+    else
+      [0 | acc]
+    end
+end)
+|> Enum.sum()
+```

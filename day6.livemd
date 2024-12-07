@@ -1,0 +1,302 @@
+# Day 6: Guard Gallivant
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+defmodule GuardGallivantPart1 do
+  defp parse_input(input) do
+    String.split(input, "\n") |> Enum.map(&String.split(&1, "", trim: true))
+  end
+
+  defp get_pos(map, x, y) do
+    Enum.at(map, y) |> Enum.at(x)
+  end
+
+  defp get_start_point(map) do
+    cols = length(hd(map)) - 1
+    rows = length(map) - 1
+
+    {_start_x, _start_y} =
+      for x <- 0..cols, y <- 0..rows, get_pos(map, x, y) == "^", reduce: {0, 0} do
+        _acc ->
+          {x, y}
+      end
+  end
+
+  defp out_of_bound?(map, x, y) do
+    x < 0 || y < 0 || y > length(map) - 1 || x > length(hd(map)) - 1
+  end
+
+  defp next_point(x, y, {dir_x, dir_y}), do: {x + 1 * dir_x, y + 1 * dir_y}
+
+  # up
+  defp next_direction({0, -1}), do: {1, 0}
+  # right
+  defp next_direction({1, 0}), do: {0, 1}
+  # down
+  defp next_direction({0, 1}), do: {-1, 0}
+  # left
+  defp next_direction({-1, 0}), do: {0, -1}
+
+  defp run_guard(map, {x, y} = _position, {_dir_x, _dir_y} = dir, visited_points = %MapSet{}) do
+    visited_points = MapSet.put(visited_points, {x, y})
+
+    with {next_x, next_y} <- next_point(x, y, dir),
+         false <- out_of_bound?(map, next_x, next_y),
+         point <- get_pos(map, next_x, next_y) do
+      case point do
+        "#" ->
+          run_guard(
+            map,
+            next_point(x, y, next_direction(dir)),
+            next_direction(dir),
+            visited_points
+          )
+
+        s when s in [".", "^", "O"] ->
+          run_guard(map, {next_x, next_y}, dir, visited_points)
+      end
+    else
+      _ -> visited_points
+    end
+  end
+
+  def solve(input) do
+    map = parse_input(input)
+
+    map
+    |> run_guard(get_start_point(map), {0, -1}, MapSet.new())
+    |> MapSet.size()
+  end
+end
+
+GuardGallivantPart1.solve(input)
+
+```
+
+## Part 2
+
+```elixir
+defmodule GuardGallivantPart2 do
+  defp parse_input(input) do
+    String.split(input, "\n") |> Enum.map(&String.split(&1, "", trim: true))
+  end
+
+  defp get_pos(map, {x, y}) do
+    get_pos(map, x, y)
+  end
+
+  defp get_pos(map, x, y) do
+    Enum.at(map, y) |> Enum.at(x)
+  end
+
+  defp get_start_point(map) do
+    cols = length(hd(map)) - 1
+    rows = length(map) - 1
+
+    {_start_x, _start_y} =
+      for x <- 0..cols, y <- 0..rows, get_pos(map, x, y) == "^", reduce: {0, 0} do
+        _acc ->
+          {x, y}
+      end
+  end
+
+  defp out_of_bound?(map, {x, y}) do
+    out_of_bound?(map, x, y)
+  end
+
+  defp out_of_bound?(map, x, y) do
+    x < 0 || y < 0 || y > length(map) - 1 || x > length(hd(map)) - 1
+  end
+
+  defp next_point(x, y, {dir_x, dir_y}), do: {x + 1 * dir_x, y + 1 * dir_y}
+
+  # up
+  defp next_direction({0, -1}), do: {1, 0}
+  # right
+  defp next_direction({1, 0}), do: {0, 1}
+  # down
+  defp next_direction({0, 1}), do: {-1, 0}
+  # left
+  defp next_direction({-1, 0}), do: {0, -1}
+
+  defp is_loop?(visited_points, position, dir) do
+    MapSet.member?(visited_points, {position, dir})
+  end
+
+  defp make_next_turn(map, {x, y} = cur_pos, {_dx, _dy} = cur_dir) do
+    next_dir = next_direction(cur_dir)
+    next_pos = next_point(x, y, next_dir)
+
+    cond do
+      !out_of_bound?(map, next_pos) && get_pos(map, next_pos) == "#" ->
+        {cur_pos, next_dir}
+
+      out_of_bound?(map, next_pos) ->
+        {cur_pos, next_dir}
+
+      true ->
+        {next_pos, next_dir}
+    end
+  end
+
+  defp run_guard(map, {x, y} = _position, {_dir_x, _dir_y} = dir, visited_points = %MapSet{}) do
+    with {next_x, next_y} <- next_point(x, y, dir),
+         :ok <- if(is_loop?(visited_points, {x, y}, dir), do: :is_loop, else: :ok),
+         :ok <- if(out_of_bound?(map, next_x, next_y), do: :out_of_bound, else: :ok),
+         point <- get_pos(map, next_x, next_y) do
+      case point do
+        "#" ->
+          {next_pos, next_dir} = make_next_turn(map, {x, y}, dir)
+
+          run_guard(
+            map,
+            next_pos,
+            next_dir,
+            MapSet.put(visited_points, {{x, y}, dir})
+          )
+
+        s when s in [".", "^"] ->
+          run_guard(map, {next_x, next_y}, dir, MapSet.put(visited_points, {{x, y}, dir}))
+      end
+    else
+      :is_loop ->
+        {:loop, visited_points}
+
+      :out_of_bound ->
+        {:ok, visited_points}
+    end
+  end
+
+  def solve(input) do
+    map = parse_input(input)
+    start = get_start_point(map)
+
+    points =
+      for x <- 0..(length(hd(map)) - 1),
+          y <- 0..(length(map) - 1),
+          get_pos(map, x, y) == ".",
+          do: {x, y}
+
+    Task.async_stream(
+      points,
+      fn {x, y} ->
+        Enum.at(map, y)
+        |> List.replace_at(x, "#")
+        |> then(&List.replace_at(map, y, &1))
+        |> run_guard(start, {0, -1}, MapSet.new())
+      end,
+      ordered: false,
+      timeout: 5000
+    )
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.reject(&(elem(&1, 0) == :ok))
+    |> Enum.count()
+  end
+end
+
+GuardGallivantPart2.solve(input)
+```
+
+```elixir
+defmodule AdventOfCode2024.Day6 do
+  @moduledoc false
+  def solve(input, part: part) do
+    matrix = parse(input)
+
+    {{start_y, start_x}, "^"} = Enum.find(matrix, &match?({_, "^"}, &1))
+
+    {updated_matrix, visited} = traverse(matrix, {start_y, start_x})
+
+    :persistent_term.put(:counter_loop, 0)
+    :persistent_term.put(:counter_ok, 0)
+    
+    case part do
+      1 ->
+        1 + Enum.count(updated_matrix, &match?({_, "X"}, &1))
+
+      2 ->
+        visited
+        |> Enum.filter(&(&1 != {start_y, start_x}))
+        |> Enum.reduce(0, fn {obstacle_y, obstacle_x}, acc ->
+          modified_matrix = Map.put(matrix, {obstacle_y, obstacle_x}, "O")
+
+          case traverse(modified_matrix, {start_y, start_x}) do
+            :loop ->
+              :persistent_term.put(:counter_loop, :persistent_term.get(:counter_loop) + 1)
+              acc + 1
+            _ ->
+              :persistent_term.put(:counter_ok, :persistent_term.get(:counter_ok) + 1)
+              acc
+          end
+        end)
+    end
+
+    #IO.inspect :persistent_term.get(:counter_loop)
+    #IO.inspect :persistent_term.get(:counter_ok)
+  end
+
+  defp traverse(matrix, {start_y, start_x}) do
+    0
+    |> Stream.iterate(&(&1 + 1))
+    |> Enum.reduce_while({matrix, {start_y, start_x}, MapSet.new()}, fn _, {matrix, {y, x}, visited} ->
+      {{d_y, d_x}, current, rotated} =
+        case matrix[{y, x}] do
+          "^" -> {{-1, 0}, "^", ">"}
+          ">" -> {{0, 1}, ">", "v"}
+          "v" -> {{1, 0}, "v", "<"}
+          "<" -> {{0, -1}, "<", "^"}
+        end
+
+      if MapSet.member?(visited, {{y, x}, current}) do
+        {:halt, :loop}
+      else
+        updated_visited = MapSet.put(visited, {{y, x}, current})
+
+        case matrix[{y + d_y, x + d_x}] do
+          char when char == "#" or char == "O" ->
+            updated_matrix = Map.put(matrix, {y, x}, rotated)
+
+            {:cont, {updated_matrix, {y, x}, updated_visited}}
+
+          char when char == "." or char == "X" ->
+            updated_matrix = matrix |> Map.put({y, x}, "X") |> Map.put({y + d_y, x + d_x}, current)
+
+            {:cont, {updated_matrix, {y + d_y, x + d_x}, updated_visited}}
+
+          nil ->
+            {:halt, {matrix, MapSet.new(updated_visited, &elem(&1, 0))}}
+        end
+      end
+    end)
+  end
+
+  defp parse(input) do
+    matrix = input |> String.split("\n", trim: true) |> Enum.map(&String.graphemes/1)
+
+    for {row, i} <- Enum.with_index(matrix), reduce: %{} do
+      acc ->
+        for {char, j} <- Enum.with_index(row), reduce: acc do
+          acc ->
+            Map.put(acc, {i, j}, char)
+        end
+    end
+  end
+end
+
+AdventOfCode2024.Day6.solve(input, part: 2)
+```
