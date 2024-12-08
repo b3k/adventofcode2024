@@ -1,0 +1,134 @@
+# Day 7: Bridge Repair
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+defmodule BridgeRepairPart1 do
+  def solve(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_line/1)
+    |> Enum.filter(&solvable?/1)
+    |> Enum.map(fn {test_value, _numbers} -> test_value end)
+    |> Enum.sum()
+  end
+
+  def parse_line(line) do
+    [test_part, numbers_part] = String.split(line, ":", trim: true)
+    test_value = String.trim(test_part) |> String.to_integer()
+    numbers = 
+      numbers_part
+      |> String.split(" ", trim: true)
+      |> Enum.map(&String.to_integer/1)
+    
+    {test_value, numbers}
+  end
+
+  def solvable?({test_value, numbers}) do
+    operator_count = length(numbers) - 1
+    operator_combinations = generate_operator_combinations(operator_count)
+    
+    Enum.any?(operator_combinations, fn operators ->
+      evaluate(numbers, operators) == test_value
+    end)
+  end
+
+  def generate_operator_combinations(count) do
+    operators = ["+", "*"]
+    for _ <- 1..count,
+        reduce: [[]] do
+      acc -> for op <- operators, list <- acc, do: list ++ [op]
+    end
+  end
+
+  def evaluate(numbers, operators) do
+    [first | rest] = numbers
+    Enum.zip(operators, rest)
+    |> Enum.reduce(first, fn {operator, number}, acc ->
+      case operator do
+        "+" -> acc + number
+        "*" -> acc * number
+      end
+    end)
+  end
+end
+
+BridgeRepairPart1.solve(input)
+```
+
+## Part 2
+
+```elixir
+defmodule BridgeRepairPart2 do
+  def solve(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_line/1)
+    |> Enum.filter(&solvable?/1)
+    |> Enum.map(fn {test_value, _numbers} -> test_value end)
+    |> Enum.sum()
+  end
+
+  def parse_line(line) do
+    [test_part, numbers_part] = String.split(line, ":", trim: true)
+    test_value = String.trim(test_part) |> String.to_integer()
+    numbers = 
+      numbers_part
+      |> String.split(" ", trim: true)
+      |> Enum.map(&String.to_integer/1)
+    
+    {test_value, numbers}
+  end
+
+  def solvable?({test_value, numbers}) do
+    operator_count = length(numbers) - 1
+    operator_combinations = generate_operator_combinations(operator_count)
+    
+    Enum.any?(operator_combinations, fn operators ->
+      evaluate(numbers, operators) == test_value
+    end)
+  end
+
+  def generate_operator_combinations(count) do
+    operators = ["+", "*", "||"]
+    for _ <- 1..count,
+        reduce: [[]] do
+      acc -> for op <- operators, list <- acc, do: list ++ [op]
+    end
+  end
+
+  def evaluate(numbers, operators) do
+    [first | rest] = numbers
+    
+    Enum.zip(operators, rest)
+    |> Enum.reduce(first, fn {operator, number}, acc ->
+      case operator do
+        "+" -> acc + number
+        "*" -> acc * number
+        "||" -> concat_numbers(acc, number)
+      end
+    end)
+  end
+
+  def concat_numbers(a, b) do
+    (Integer.to_string(a) <> Integer.to_string(b))
+    |> String.to_integer()
+  end
+end
+
+BridgeRepairPart2.solve(input)
+```

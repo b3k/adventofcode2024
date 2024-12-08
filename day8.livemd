@@ -1,0 +1,113 @@
+# Day 8: Resonant Collinearity
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1 & Part 2
+
+```elixir
+defmodule ResonantCollinearityPart1 do
+  def solve_part1(input) do
+    map_size = get_map_dimensions(input)
+
+    parse_input(input)
+    |> find_antenna_pairs()
+    |> find_antinodes()
+    |> Enum.reject(&out_of_bound?(map_size, &1))
+    |> Enum.uniq()
+    |> Enum.count()
+  end
+
+  def solve_part2(input) do
+    map_size = get_map_dimensions(input)
+
+    parse_input(input)
+    |> find_antenna_pairs()
+    |> find_antinodes_repeated(map_size)
+    |> Enum.uniq()
+    |> Enum.count()
+  end
+
+  defp out_of_bound?({max_x, max_y}, {x, y}), do: y < 0 || x < 0 || x > max_x || y > max_y
+
+  defp parse_input(input) do
+    input
+    |> String.split("\n")
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {line, y} ->
+      line
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.filter(fn {char, _x} -> char not in ["."] end)
+      |> Enum.map(fn {char, x} -> {{x, y}, char} end)
+    end)
+  end
+
+  defp find_antenna_pairs(antennas) do
+    antennas
+    |> Enum.reduce(%{}, fn {pos, freq}, acc ->
+      Map.update(acc, freq, [pos], &[pos | &1])
+    end)
+    |> Map.values()
+    |> Enum.flat_map(fn positions ->
+      for pos1 <- positions,
+          pos2 <- positions,
+          pos1 < pos2,
+          do: {pos1, pos2}
+    end)
+  end
+
+  defp get_map_dimensions(input) do
+    lines = String.split(input, "\n", trim: true)
+    {String.length(hd(lines)) - 1, length(lines) - 1}
+  end
+
+  defp find_antinodes(pairs_list) do
+    Enum.flat_map(pairs_list, fn {{x1, y1}, {x2, y2}} ->
+      {diff_x, diff_y} = {x2 - x1, y2 - y1}
+      [{x1 - diff_x, y1 - diff_y}, {x2 + diff_x, y2 + diff_y}]
+    end)
+  end
+
+  defp find_antinodes_repeated(pairs_list, map_size) do
+    Enum.flat_map(pairs_list, fn {{x1, y1}, {x2, y2}} ->
+      {diff_x, diff_y} = {x2 - x1, y2 - y1}
+      Enum.concat(
+        next_antinode({x1, y1}, {diff_x, diff_y}, map_size, []),
+        next_antinode({x2, y2}, {-diff_x, -diff_y}, map_size, [])
+      )
+      |> Enum.concat([{x1, y1}, {x2, y2}])
+    end)
+  end
+
+  defp next_antinode({x, y}, {diff_x, diff_y} = diff, map_size, acc) do
+    antinode = {x - diff_x, y - diff_y}
+  
+    if !out_of_bound?(map_size, antinode) do
+      next_antinode(antinode, diff, map_size, [antinode | acc])
+    else
+      acc
+    end
+  end
+end
+
+# ResonantCollinearityPart1.solve_part1(input)
+ResonantCollinearityPart1.solve_part2(input)
+```
+
+```elixir
+pos1 = -4
+pos2 = 5
+IO.inspect({-pos1, -pos2})
+```
