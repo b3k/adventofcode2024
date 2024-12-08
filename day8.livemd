@@ -102,12 +102,6 @@ defmodule ResonantCollinearityPart1 do
   end
 end
 
-# ResonantCollinearityPart1.solve_part1(input)
-ResonantCollinearityPart1.solve_part2(input)
-```
-
-```elixir
-pos1 = -4
-pos2 = 5
-IO.inspect({-pos1, -pos2})
+ResonantCollinearityPart1.solve_part1(input) |> IO.puts()
+ResonantCollinearityPart1.solve_part2(input) |> IO.puts()
 ```
