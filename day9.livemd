@@ -1,0 +1,159 @@
+# Day 9: Disk Fragmenter
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+input
+|> String.split("", trim: true)
+|> Enum.map(&String.to_integer(&1))
+|> Enum.with_index()
+|> Enum.reduce({0, []}, fn
+  {blocks, id}, {cur_file_id, list} when rem(id, 2) == 0 ->
+    {cur_file_id + 1, list ++ for(_i <- 1..blocks//1, do: cur_file_id)}
+
+  {blocks, id}, {cur_file_id, list} when rem(id, 2) == 1 ->
+    {cur_file_id, list ++ for(_i <- 1..blocks//1, do: ".")}
+end)
+|> elem(1)
+|> then(fn list ->
+  clean_rev_list = Enum.reverse(Enum.reject(list, &(&1 == ".")))
+  max_len = Enum.count(clean_rev_list)
+  Enum.reduce(list, {0, max_len, clean_rev_list, []}, fn
+    _item, {num, max_len, rev_list, new_list} when num >= max_len ->
+      {num, max_len, rev_list, new_list}
+    item, {num, max_len, rev_list, new_list} when item == "." ->
+      [rev_item | rev_rest] = rev_list
+      {num+1, max_len, rev_rest, [rev_item | new_list]}
+    item, {num, max_len, rev_list, new_list} when is_integer(item) ->
+      {num+1, max_len, rev_list, [item | new_list]}
+  end)
+  |> elem(3)
+  |> Enum.reverse()
+end)
+|> Enum.with_index()
+|> Enum.map(fn({left, right}) -> left * right end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+block_sizes =
+  String.split(input, "", trim: true)
+  |> Enum.map(&String.to_integer(&1))
+  |> Enum.with_index()
+
+merge_free_space = fn list ->
+  Enum.chunk_by(list, fn {_, _, value} -> value == :free end)
+  |> Enum.map(fn chunk ->
+    case List.first(chunk) do
+      {_, _, :free} when length(chunk) > 1 ->
+        {first_idx, _, _} = List.first(chunk)
+        middle_sum = Enum.reduce(chunk, 0, fn {_, val, _}, acc -> acc + val end)
+        {first_idx, middle_sum, :free}
+
+      _ ->
+        chunk
+    end
+  end)
+  |> Enum.flat_map(fn
+    elements when is_list(elements) -> elements
+    element -> [element]
+  end)
+end
+
+Enum.reduce(block_sizes, {0, []}, fn
+  {blocks, id}, {cur_file_id, list} when rem(id, 2) == 0 ->
+    {cur_file_id + 1, list ++ for(_i <- 1..blocks//1, do: cur_file_id)}
+
+  {blocks, id}, {cur_file_id, list} when rem(id, 2) == 1 ->
+    {cur_file_id, list ++ for(_i <- 1..blocks//1, do: ".")}
+end)
+|> elem(1)
+|> then(fn _list ->
+  Enum.reduce(block_sizes, {0, []}, fn
+    {0, _id}, {cur_data_num, acc} ->
+      {cur_data_num, acc}
+
+    {size, id}, {cur_data_num, acc} when rem(id, 2) == 0 ->
+      {cur_data_num + 1, [{id, size, cur_data_num} | acc]}
+
+    {size, id}, {cur_data_num, acc} when rem(id, 2) == 1 ->
+      {cur_data_num, [{id, size, :free} | acc]}
+  end)
+  |> elem(1)
+  |> then(fn reversed_list ->
+    Enum.reduce(reversed_list, Enum.reverse(reversed_list), fn
+      {_, _, :free}, acc ->
+        acc
+
+      {id, size, data}, acc ->
+        found_space =
+          Enum.find_index(acc, fn
+            {_id, free_size, :free} -> free_size >= size
+            {_id, _size, _data} -> false
+          end)
+
+        current_file_index =
+          Enum.find_index(acc, &(&1 == {id, size, data}))
+
+        case found_space do
+          nil ->
+            acc
+
+          found_space when found_space > current_file_index ->
+            acc
+
+          found_space ->
+            {free_elem_id, free_size, _} = Enum.at(acc, found_space)
+            new_elem = {id, size, data}
+
+            List.replace_at(acc, found_space, {free_elem_id, free_size - size, :free})
+            |> List.replace_at(
+              Enum.find_index(acc, &(&1 == {id, size, data})),
+              {id, size, :free}
+            )
+            |> List.insert_at(found_space, new_elem)
+            |> merge_free_space.()
+        end
+    end)
+    |> Enum.reject(fn
+      {_id, 0, :free} -> true
+      {_, _, _} -> false
+    end)
+    |> Enum.reduce([], fn {_, size, num}, acc -> for(_i <- 1..size, do: num) ++ acc end)
+    |> Enum.reverse()
+    |> Enum.with_index()
+    |> Enum.map(fn
+      {:free, _} -> 0
+      {left, right} -> left * right
+    end)
+    |> Enum.sum()
+  end)
+end)
+
+# [ {0, 2, 0}, {1, 3, :free}, {2, 3, 1}, {3, 3, :free} ]
+# |> Enum.with_index()
+# |> Enum.map(fn {left, right} -> left * right end)
+# |> Enum.sum()
+# 00...111...2...333.44.5555.6666.777.888899
+# 0099.111...2...333.44.5555.6666.777.8888..
+# 0099.1117772...333.44.5555.6666.....8888..
+# 0099.111777244.333....5555.6666.....8888..
+# 00992111777.44.333....5555.6666.....8888..
+# 00992111777.44.333....5555.6666.....8888..
+```

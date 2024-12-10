@@ -1,0 +1,100 @@
+# Day 10: Hoof It
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1 & 2
+
+```elixir
+defmodule HoofIt do
+  def solve_part1(input) do
+    parsed = parse_input(input)
+
+    Enum.map(find_start_points(parsed), fn {x, y} ->
+      go(parsed, {x, y}, MapSet.new()) |> MapSet.size()
+    end)
+    |> Enum.sum()
+  end
+
+  def solve_part2(input) do
+    parsed = parse_input(input)
+
+    Enum.map(find_start_points(parsed), fn {x, y} ->
+      go(parsed, {x, y})
+    end)
+    |> List.flatten()
+    |> Enum.count()
+  end
+
+  defp find_start_points(map) do
+    for x <- 0..(length(hd(map)) - 1),
+        y <- 0..(length(map) - 1),
+        get(map, {x, y}) == 0 do
+      {x, y}
+    end
+  end
+
+  defp directions, do: [{-1, 0}, {1, 0}, {0, -1}, {0, 1}]
+
+  defp in_bounds?(map, {x, y}, {dx, dy}) do
+    0 <= dx + x and dx + x < length(hd(map)) and 0 <= dy + y and dy + y < length(map)
+  end
+
+  defp is_next_point?(map, {x, y}, {dx, dy}),
+    do: get(map, {x + dx, y + dy}) == get(map, {x, y}) + 1
+
+  defp go(map, {x, y}, acc = %MapSet{}) do
+    case get(map, {x, y}) do
+      9 ->
+        MapSet.put(acc, {x, y})
+
+      _other ->
+        for {dx, dy} <- directions(),
+            in_bounds?(map, {x, y}, {dx, dy}),
+            is_next_point?(map, {x, y}, {dx, dy}),
+            reduce: acc do
+          acc ->
+            go(map, {x + dx, y + dy}, acc)
+        end
+    end
+  end
+
+  defp go(map, {x, y}) do
+    case get(map, {x, y}) do
+      9 ->
+        {x, y}
+
+      _other ->
+        for {dx, dy} <- directions(),
+            in_bounds?(map, {x, y}, {dx, dy}),
+            is_next_point?(map, {x, y}, {dx, dy}) do
+          go(map, {x + dx, y + dy})
+        end
+    end
+  end
+
+  defp get(map, {x, y}), do: Enum.at(map, y) |> Enum.at(x)
+
+  defp parse_input(input) do
+    String.split(input, "\n", trim: true)
+    |> Enum.map(fn i ->
+      String.split(i, "", trim: true)
+      |> Enum.map(&String.to_integer(&1))
+    end)
+  end
+end
+
+HoofIt.solve_part1(input) |> IO.puts()
+HoofIt.solve_part2(input) |> IO.puts()
+```
