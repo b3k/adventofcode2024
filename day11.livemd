@@ -1,0 +1,119 @@
+# Day 11: Plutonian Pebbles
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1 & 2
+
+```elixir
+defmodule PlutonianPebbles do
+  def solve(input) do
+    start_memo()
+
+    # part 1
+    parse_input(input)
+    |> Enum.map(fn i ->
+      blink(i, 0, 25)
+    end)
+    |> Enum.sum()
+    |> IO.inspect()
+
+    # part 2
+    parse_input(input)
+    |> Enum.map(fn i ->
+      blink(i, 0, 75)
+    end)
+    |> Enum.sum()
+    |> IO.inspect()
+  end
+
+  def blink(stone_number, blink_num, max_blinks) do
+    case get_cached_result(stone_number, blink_num, max_blinks) do
+      nil ->
+        result = compute_blink(stone_number, blink_num, max_blinks)
+        cache_result(stone_number, blink_num, max_blinks, result)
+        result
+
+      cached_result ->
+        cached_result
+    end
+  end
+
+  defp compute_blink(stone_number, blink_num, max_blinks) do
+    cond do
+      blink_num == max_blinks ->
+        1
+
+      stone_number == 0 ->
+        blink(1, blink_num + 1, max_blinks)
+
+      is_even_len?(stone_number) ->
+        as_list = integer_to_list(stone_number)
+        {left, right} = Enum.split(as_list, half_size(as_list))
+
+        blink(list_to_integer(left), blink_num + 1, max_blinks) +
+          blink(list_to_integer(right), blink_num + 1, max_blinks)
+
+      true ->
+        blink(stone_number * 2024, blink_num + 1, max_blinks)
+    end
+  end
+
+  def start_memo do
+    case :ets.whereis(:blink_cache) do
+      :undefined ->
+        :ets.new(:blink_cache, [:set, :public, :named_table])
+
+      _table_ref ->
+        :ets.delete_all_objects(:blink_cache)
+    end
+
+    :ok
+  end
+
+  defp get_cached_result(stone_number, blink_num, max_blinks) do
+    case :ets.lookup(:blink_cache, {stone_number, blink_num, max_blinks}) do
+      [{_, result}] -> result
+      [] -> nil
+    end
+  end
+
+  defp cache_result(stone_number, blink_num, max_blinks, result) do
+    :ets.insert(:blink_cache, {{stone_number, blink_num, max_blinks}, result})
+  end
+
+  def integer_to_list(integer) do
+    Integer.digits(integer)
+  end
+
+  def list_to_integer(list) do
+    Integer.undigits(list)
+  end
+
+  def half_size(list) do
+    div(length(list), 2)
+  end
+
+  def is_even_len?(integer) do
+    rem(Integer.digits(integer) |> length(), 2) == 0
+  end
+
+  defp parse_input(input) do
+    String.split(input, " ", trim: true)
+    |> Enum.map(&String.to_integer(&1))
+  end
+end
+
+PlutonianPebbles.solve(input)
+```

@@ -1,0 +1,214 @@
+# Day 12: Garden Groups
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1 & 2
+
+```elixir
+defmodule GardenFencing do
+  def solve(input) do
+    grid = parse_input(input)
+    dimensions = get_dimensions(grid)
+
+    # part 1
+    grid
+    |> find_regions(dimensions)
+    |> Enum.map(&calculate_region_price/1)
+    |> Enum.sum()
+    |> IO.inspect()
+
+    # part 2
+    grid
+    |> find_regions(dimensions)
+    |> Enum.map(&calculate_region_discount_price/1)
+    |> Enum.sum()
+    |> IO.inspect()
+  end
+
+  defp parse_input(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, y}, acc ->
+      line
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(acc, fn {char, x}, acc2 ->
+        Map.put(acc2, {x, y}, char)
+      end)
+    end)
+  end
+
+  defp get_dimensions(grid) do
+    {{max_x, _}, _} = Enum.max_by(grid, fn {{x, _}, _} -> x end)
+    {{_, max_y}, _} = Enum.max_by(grid, fn {{_, y}, _} -> y end)
+    {max_x + 1, max_y + 1}
+  end
+
+  defp find_regions(grid, dimensions) do
+    grid
+    |> Map.keys()
+    |> Enum.reduce({[], MapSet.new()}, fn coord, {regions, visited} ->
+      if MapSet.member?(visited, coord) do
+        {regions, visited}
+      else
+        region = flood_fill(grid, dimensions, coord, MapSet.new())
+        {[region | regions], MapSet.union(visited, region)}
+      end
+    end)
+    |> elem(0)
+  end
+
+  defp flood_fill(grid, dimensions, {x, y} = coord, visited) do
+    if MapSet.member?(visited, coord) or
+         !Map.has_key?(grid, coord) or
+         x < 0 or y < 0 or
+         x >= elem(dimensions, 0) or
+         y >= elem(dimensions, 1) do
+      visited
+    else
+      current_type = Map.get(grid, coord)
+      visited = MapSet.put(visited, coord)
+
+      neighbors = neighbors({x, y}, false)
+
+      Enum.reduce(neighbors, visited, fn neighbor, acc ->
+        if Map.get(grid, neighbor) == current_type do
+          flood_fill(grid, dimensions, neighbor, acc)
+        else
+          acc
+        end
+      end)
+    end
+  end
+
+  defp calculate_region_price(region) do
+    area = MapSet.size(region)
+    perimeter = calculate_perimeter(region)
+    area * perimeter
+  end
+
+  defp neighbors({x, y}, false) do
+    [
+      {x + 1, y},
+      {x - 1, y},
+      {x, y + 1},
+      {x, y - 1}
+    ]
+  end
+
+  defp neighbors({x, y}, true) do
+    neighbors({x, y}, false) ++
+      [
+        {x + 1, y + 1},
+        {x - 1, y + 1},
+        {x - 1, y - 1},
+        {x + 1, y - 1}
+      ]
+  end
+
+  defp get_perimeters_with_diagonal(region) do
+    Enum.reduce(region, [], fn {x, y}, acc ->
+      neighbors = neighbors({x, y}, true)
+
+      if Enum.any?(neighbors, fn coord -> !MapSet.member?(region, coord) end) do
+        [{x, y} | acc]
+      else
+        acc
+      end
+    end)
+  end
+
+  defp is_corner?(region, {x, y}, {dx1, dy1}, {dx2, dy2}) do
+    !MapSet.member?(region, {x + dx1, y + dy1}) &&
+      !MapSet.member?(region, {x + dx2, y + dy2})
+  end
+
+  defp is_diagonal_corner?(region, {x, y}, {dx1, dy1}, {dx2, dy2}, {dx3, dy3}) do
+    !MapSet.member?(region, {x + dx1, y + dy1}) &&
+      MapSet.member?(region, {x + dx2, y + dy2}) &&
+      MapSet.member?(region, {x + dx3, y + dy3})
+  end
+
+  defp get_corners(region, {x, y}) do
+    out_corners_coord = [
+      # top-left
+      [{-1, 0}, {0, -1}],
+      # top-right
+      [{1, 0}, {0, -1}],
+      # bottom-left
+      [{-1, 0}, {0, 1}],
+      # bottom-right
+      [{1, 0}, {0, 1}]
+    ]
+
+    ins_corners_coord = [
+      # top-left
+      [{-1, -1}, {-1, 0}, {0, -1}],
+      # top-right
+      [{1, -1}, {0, -1}, {1, 0}],
+      # bottom-left
+      [{-1, 1}, {-1, 0}, {0, 1}],
+      # bottom-right
+      [{1, 1}, {1, 0}, {0, 1}]
+    ]
+
+    Enum.reduce(out_corners_coord ++ ins_corners_coord, 0, fn
+      [{dx1, dy1}, {dx2, dy2}], acc ->
+        if is_corner?(region, {x, y}, {dx1, dy1}, {dx2, dy2}) do
+          acc + 1
+        else
+          acc
+        end
+
+      [{dx1, dy1}, {dx2, dy2}, {dx3, dy3}], acc ->
+        if is_diagonal_corner?(region, {x, y}, {dx1, dy1}, {dx2, dy2}, {dx3, dy3}) do
+          acc + 1
+        else
+          acc
+        end
+    end)
+  end
+
+  defp calculate_region_discount_price(region) do
+    area = MapSet.size(region)
+    sides = calculate_sides(region)
+    area * sides
+  end
+
+  defp calculate_sides(region) do
+    Enum.map(get_perimeters_with_diagonal(region), fn {x, y} ->
+      get_corners(region, {x, y})
+    end)
+    |> Enum.sum()
+  end
+
+  defp calculate_perimeter(region) do
+    Enum.reduce(region, 0, fn {x, y}, acc ->
+      neighbors = neighbors({x, y}, false)
+
+      exposed_sides = Enum.count(neighbors, fn coord -> !MapSet.member?(region, coord) end)
+      acc + exposed_sides
+    end)
+  end
+end
+
+GardenFencing.solve(input)
+```
+
+```elixir
+1396298
+853588
+```
