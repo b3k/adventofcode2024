@@ -1,0 +1,76 @@
+# Day 13: Claw Contraption
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1 & 2
+
+```elixir
+defmodule ClawContraption do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.chunk_every(3)
+    |> Enum.map(fn [a, b, p] ->
+      [ax, ay] =
+        String.split(a, ["Button A: X+", ", Y+"], trim: true) |> Enum.map(&String.to_integer/1)
+
+      [bx, by] =
+        String.split(b, ["Button B: X+", ", Y+"], trim: true) |> Enum.map(&String.to_integer/1)
+
+      [px, py] =
+        String.split(p, ["Prize: X=", ", Y="], trim: true) |> Enum.map(&String.to_integer/1)
+
+      {{ax, ay}, {bx, by}, {px, py}}
+    end)
+  end
+
+  def solve_part1(input) do
+    input
+    |> parse()
+    |> Enum.map(fn {{ax, ay}, {bx, by}, {px, py}} ->
+      ca = div(by * px - bx * py, by * ax - bx * ay)
+      cb = div(ay * px - ax * py, ay * bx - ax * by)
+
+      if ca * ax + cb * bx == px && ca * ay + cb * by == py do
+        3 * ca + cb
+      else
+        0
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  def solve_part2(input) do
+    add = 10_000_000_000_000
+
+    input
+    |> parse()
+    |> Enum.map(fn {{ax, ay}, {bx, by}, {px, py}} ->
+      ca = div(by * (px + add) - bx * (py + add), by * ax - bx * ay)
+      cb = div(ay * (px + add) - ax * (py + add), ay * bx - ax * by)
+
+      if ca * ax + cb * bx == px + add && ca * ay + cb * by == py + add do
+        3 * ca + cb
+      else
+        0
+      end
+    end)
+    |> Enum.sum()
+  end
+end
+
+ClawContraption.solve_part1(input)
+ClawContraption.solve_part2(input)
+```
