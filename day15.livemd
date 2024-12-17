@@ -1,0 +1,305 @@
+# Day 15: Warehouse Woes
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+defmodule WarehouseWoesPart1 do
+  def solve(input) do
+    {map, moves} =
+      input
+      |> parse_input()
+
+    move_robot(map, get_start_position(map), moves)
+    |> calculate_gps_sum()
+  end
+
+  defp get_start_position(map) do
+    {coord, _} = Enum.find(map, nil, fn {_coord, value} -> value == "@" end)
+    coord
+  end
+
+  defp parse_input(input) do
+    [map, moves] = String.split(input, "\n\n", trim: true)
+    {parse_input_map(map), String.replace(moves, "\n", "") |> String.split("", trim: true)}
+  end
+
+  defp dir("<"), do: {-1, 0}
+  defp dir(">"), do: {1, 0}
+  defp dir("^"), do: {0, -1}
+  defp dir("v"), do: {0, 1}
+
+  defp parse_input_map(input_map) do
+    input_map
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, y}, acc ->
+      line
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(acc, fn {char, x}, acc2 ->
+        Map.put(acc2, {x, y}, char)
+      end)
+    end)
+  end
+
+  defp is_moveable?(map, coord) do
+    Map.get(map, coord) != "#"
+  end
+
+  defp is_box?(map, coord) do
+    Map.get(map, coord) == "O"
+  end
+
+  defp move_robot(map, _coord, []) do
+    map
+  end
+
+  defp move_robot(map, {x, y}, [current_move | moves]) do
+    {dx, dy} = dir(current_move)
+    move_coord = {x + dx, y + dy}
+
+    cond do
+      !is_moveable?(map, move_coord) ->
+        move_robot(map, {x, y}, moves)
+
+      is_box?(map, move_coord) ->
+        case move_box(map, move_coord, {dx, dy}) do
+          {:ok, new_map} ->
+            move_robot(new_map, move_coord, moves)
+
+          {:no_move, _} ->
+            move_robot(map, {x, y}, moves)
+        end
+
+      true ->
+        move_robot(map, move_coord, moves)
+    end
+  end
+
+  defp move_box(map, {x, y}, {dx, dy}) do
+    move_coord = {x + dx, y + dy}
+
+    cond do
+      !is_moveable?(map, move_coord) ->
+        {:no_move, map}
+
+      is_box?(map, move_coord) ->
+        case move_box(map, move_coord, {dx, dy}) do
+          {:ok, new_map} ->
+            {:ok,
+             Map.update!(new_map, move_coord, fn _ -> Map.get(map, {x, y}) end)
+             |> Map.update!({x, y}, fn _ -> "." end)}
+
+          {:no_move, _} ->
+            {:no_move, map}
+        end
+
+      true ->
+        {:ok,
+         Map.update!(map, move_coord, fn _ -> Map.get(map, {x, y}) end)
+         |> Map.update!({x, y}, fn _ -> "." end)}
+    end
+  end
+
+  defp find_boxes(map) do
+    map
+    |> Enum.filter(fn {_coord, value} -> value == "O" end)
+    |> Enum.map(fn {{x, y}, _} -> {x, y} end)
+  end
+
+  defp calculate_gps_sum(map) do
+    box_positions = find_boxes(map)
+
+    box_positions
+    |> Enum.map(fn {x, y} -> 100 * y + x end)
+    |> Enum.sum()
+  end
+end
+
+WarehouseWoesPart1.solve(input)
+```
+
+## Part 2
+
+```elixir
+defmodule WarehouseWoesPart2 do
+  def solve(input) do
+    {map, moves} =
+      input
+      |> parse_input()
+
+    move_robot(map, get_start_position(map), moves)
+    |> calculate_gps_sum()
+  end
+
+  defp get_start_position(map) do
+    {coord, _} = Enum.find(map, nil, fn {_coord, value} -> value == "@" end)
+    coord
+  end
+
+  defp parse_input(input) do
+    [map, moves] = String.split(input, "\n\n", trim: true)
+    {parse_input_map(map), String.replace(moves, "\n", "") |> String.split("", trim: true)}
+  end
+
+  defp dir("<"), do: {-1, 0}
+  defp dir(">"), do: {1, 0}
+  defp dir("^"), do: {0, -1}
+  defp dir("v"), do: {0, 1}
+
+  defp parse_input_map(input_map) do
+    Enum.map(String.graphemes(input_map), fn item ->
+      case item do
+        "#" -> "##"
+        "." -> ".."
+        "O" -> "[]"
+        "@" -> "@."
+        nn -> nn
+      end
+    end)
+    |> List.to_string()
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {line, y}, acc ->
+      line
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(acc, fn {char, x}, acc2 ->
+        Map.put(acc2, {x, y}, char)
+      end)
+    end)
+  end
+
+  defp is_moveable?(map, coord) when is_tuple(coord) do
+    Map.get(map, coord) != "#"
+  end
+
+  defp is_box?(map, coord) when is_tuple(coord) do
+    Map.get(map, coord) in ["[", "]"]
+  end
+
+  defp move_robot(map, _coord, []) do
+    map
+  end
+
+  defp move_robot(map, {x, y}, [current_move | moves]) do
+    {dx, dy} = dir(current_move)
+    move_coord = {x + dx, y + dy}
+
+    cond do
+      !is_moveable?(map, move_coord) ->
+        move_robot(map, {x, y}, moves)
+
+      is_box?(map, move_coord) ->
+        case move_box(map, move_coord, {dx, dy}) do
+          {:ok, new_map} ->
+            move_robot(new_map, move_coord, moves)
+
+          {:no_move, _} ->
+            move_robot(map, {x, y}, moves)
+        end
+
+      true ->
+        move_robot(map, move_coord, moves)
+    end
+  end
+
+  defp box_coord(map, {x, y}) do
+    case Map.get(map, {x, y}) do
+      "[" -> [{x, y}, {x + 1, y}]
+      "]" -> [{x, y}, {x - 1, y}]
+    end
+  end
+
+  defp box_move_coord([{x1, y1}, {x2, y2}], {dx, dy}) do
+    [{x1 + dx, y1 + dy}, {x2 + dx, y2 + dy}]
+  end
+
+  defp is_all_boxes_moveable?(map, boxes, {dx, dy}) do
+    Enum.all?(boxes, fn {x, y} ->
+      is_moveable?(map, {x + dx, y + dy})
+    end)
+  end
+
+  defp move_box(map, {x, y}, {dx, dy}) do
+    box_coord = box_coord(map, {x, y})
+    boxes = get_box_group(map, box_coord, {dx, dy})
+
+    if is_all_boxes_moveable?(map, boxes, {dx, dy}) do
+      {:ok, move_all_boxes(map, boxes, {dx, dy})}
+    else
+      {:no_move, map}
+    end
+  end
+
+  defp move_all_boxes(map, boxes, {dx, dy}) do
+    sort = fn
+      "x", {1, _} -> :desc
+      "x", {-1, _} -> :asc
+      "x", {0, _} -> :asc
+      "y", {_, -1} -> :asc
+      "y", {_, 1} -> :desc
+      "y", {_, 0} -> :desc
+    end
+
+    get_prev_val = fn boxes, map, {x, y}, {dx, dy} ->
+      prev_in_boxes = {x - dx, y - dy} in boxes
+
+      case Map.get(map, {x - dx, y - dy}) do
+        prev when prev_in_boxes -> prev
+        _prev when prev_in_boxes == false -> "."
+      end
+    end
+
+    Enum.sort_by(boxes, fn {_x, y} -> y end, sort.("y", {dx, dy}))
+    |> Enum.sort_by(fn {x, _y} -> x end, sort.("x", {dx, dy}))
+    |> Enum.reduce(map, fn {x, y}, acc ->
+      Map.update!(acc, {x + dx, y + dy}, fn _ -> Map.get(acc, {x, y}) end)
+      |> Map.update!({x, y}, fn _ -> get_prev_val.(boxes, acc, {x, y}, {dx, dy}) end)
+    end)
+  end
+
+  defp get_box_group(map, [{_x1, _y1}, {_x2, _y2}] = box_coord, {dx, dy}) do
+    next_coord = box_move_coord(box_coord, {dx, dy})
+
+    Enum.reduce(next_coord, box_coord, fn coord, acc ->
+      if is_box?(map, coord) and coord not in box_coord do
+        acc ++ get_box_group(map, box_coord(map, coord), {dx, dy})
+      else
+        acc
+      end
+    end)
+    |> Enum.uniq()
+  end
+
+  defp find_boxes(map) do
+    map
+    |> Enum.filter(fn {_coord, value} -> value == "[" end)
+    |> Enum.map(fn {{x, y}, _} -> {x, y} end)
+  end
+
+  defp calculate_gps_sum(map) do
+    box_positions = find_boxes(map)
+
+    box_positions
+    |> Enum.map(fn {x, y} -> 100 * y + x end)
+    |> Enum.sum()
+  end
+end
+
+WarehouseWoesPart2.solve(input)
+```

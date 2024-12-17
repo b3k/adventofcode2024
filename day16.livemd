@@ -1,0 +1,208 @@
+# Day 16: Reindeer Maze
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1 & 2
+
+```elixir
+defmodule ReindeerMaze do
+  @directions [:north, :east, :south, :west]
+  @deltas %{
+    north: {-1, 0},
+    east: {0, 1},
+    south: {1, 0},
+    west: {0, -1}
+  }
+
+  def solve(input) do
+    maze = parse_maze(input)
+    {start_pos, end_pos} = find_start_end(maze)
+
+    initial_queue = [{0, {start_pos, :east}}]
+    distances = %{{start_pos, :east} => 0}
+    paths = %{{start_pos, :east} => [[start_pos]]}
+
+    case dijkstra(maze, end_pos, initial_queue, distances, paths) do
+      {:ok, best_score, best_paths} ->
+        best_tiles = find_best_path_tiles(best_paths)
+        visualize_result(maze, best_tiles, best_score)
+
+      error ->
+        error
+    end
+  end
+
+  defp parse_maze(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.graphemes/1)
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {row, y}, acc ->
+      row
+      |> Enum.with_index()
+      |> Enum.reduce(acc, fn {cell, x}, acc2 ->
+        Map.put(acc2, {y, x}, cell)
+      end)
+    end)
+  end
+
+  defp find_start_end(maze) do
+    start_pos = Enum.find_value(maze, fn {pos, cell} -> if cell == "S", do: pos end)
+    end_pos = Enum.find_value(maze, fn {pos, cell} -> if cell == "E", do: pos end)
+    {start_pos, end_pos}
+  end
+
+  defp dijkstra(_maze, end_pos, [], distances, paths) do
+    end_states = Enum.filter(distances, fn {{pos, _dir}, _score} -> pos == end_pos end)
+
+    if Enum.empty?(end_states) do
+      {:error, :no_path_found}
+    else
+      min_score =
+        end_states
+        |> Enum.map(fn {_state, score} -> score end)
+        |> Enum.min()
+
+      best_paths = collect_best_paths(distances, paths, min_score, end_pos)
+      {:ok, min_score, best_paths}
+    end
+  end
+
+  defp dijkstra(
+         maze,
+         end_pos,
+         [{current_score, current_state = {current_pos, current_dir}} | rest],
+         distances,
+         paths
+       ) do
+    neighbors = get_neighbors(maze, current_pos, current_dir)
+    current_paths = Map.get(paths, current_state, [])
+
+    {new_queue, new_distances, new_paths} =
+      process_neighbors(neighbors, rest, distances, paths, current_score, current_paths)
+
+    dijkstra(maze, end_pos, new_queue, new_distances, new_paths)
+  end
+
+  defp collect_best_paths(distances, paths, best_score, end_pos) do
+    distances
+    |> Enum.filter(fn {{pos, _dir}, score} ->
+      score == best_score && pos == end_pos
+    end)
+    |> Enum.flat_map(fn {state, _score} ->
+      Map.get(paths, state, [])
+    end)
+  end
+
+  defp get_neighbors(maze, pos, direction) do
+    forward_moves = get_forward_moves(maze, pos, direction)
+    rotation_moves = get_rotation_moves(pos, direction)
+
+    forward_moves ++ rotation_moves
+  end
+
+  defp get_forward_moves(maze, {y, x}, direction) do
+    {dy, dx} = @deltas[direction]
+    new_pos = {y + dy, x + dx}
+
+    case Map.get(maze, new_pos) do
+      cell when cell in [".", "E"] -> [{new_pos, direction, 1}]
+      _ -> []
+    end
+  end
+
+  defp get_rotation_moves(pos, current_dir) do
+    current_index = Enum.find_index(@directions, &(&1 == current_dir))
+    left_index = Integer.mod(current_index - 1, 4)
+    right_index = Integer.mod(current_index + 1, 4)
+
+    [
+      {pos, Enum.at(@directions, left_index), 1000},
+      {pos, Enum.at(@directions, right_index), 1000}
+    ]
+  end
+
+  defp process_neighbors(neighbors, queue, distances, paths, current_score, current_paths) do
+    Enum.reduce(neighbors, {queue, distances, paths}, fn {new_pos, new_dir, cost}, {q, d, p} ->
+      new_score = current_score + cost
+      new_state = {new_pos, new_dir}
+      current_best = Map.get(d, new_state, :infinity)
+
+      cond do
+        new_score < current_best ->
+          new_paths = Enum.map(current_paths, &(&1 ++ [new_pos]))
+          new_distances = Map.put(d, new_state, new_score)
+          new_paths_map = Map.put(p, new_state, new_paths)
+          new_queue = insert_sorted(q, {new_score, new_state})
+          {new_queue, new_distances, new_paths_map}
+
+        new_score == current_best ->
+          additional_paths = Enum.map(current_paths, &(&1 ++ [new_pos]))
+          existing_paths = Map.get(p, new_state, [])
+          new_paths_map = Map.put(p, new_state, existing_paths ++ additional_paths)
+          {q, d, new_paths_map}
+
+        true ->
+          {q, d, p}
+      end
+    end)
+  end
+
+  defp insert_sorted([], item), do: [item]
+
+  defp insert_sorted([{score, _} = head | tail], {new_score, _} = item) do
+    if new_score <= score do
+      [item, head | tail]
+    else
+      [head | insert_sorted(tail, item)]
+    end
+  end
+
+  defp find_best_path_tiles(best_paths) do
+    best_paths
+    |> List.flatten()
+    |> Enum.uniq()
+  end
+
+  defp visualize_result(maze, best_tiles, score) do
+    max_y = Enum.max(for {{y, _}, _} <- maze, do: y)
+    max_x = Enum.max(for {{_, x}, _} <- maze, do: x)
+
+    visualization =
+      for y <- 0..max_y do
+        for x <- 0..max_x do
+          pos = {y, x}
+
+          cond do
+            Map.get(maze, pos) == "#" -> "#"
+            pos in best_tiles -> "O"
+            true -> "."
+          end
+        end
+        |> Enum.join("")
+      end
+      |> Enum.join("\n")
+
+    {score, visualization, length(best_tiles)}
+  end
+end
+
+case ReindeerMaze.solve(input) do
+  {score, visualization, tile_count} ->
+    IO.puts(visualization)
+    IO.inspect("Score: #{score}")
+    IO.inspect("Tiles: #{tile_count}")
+end
+```
