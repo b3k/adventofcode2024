@@ -1,0 +1,151 @@
+# Day 17: Chronospatial Computer
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+defmodule ChronospatialComputer do
+  import Bitwise
+
+  def solve(input) do
+    parse_input(input)
+    |> execute(0, [])
+    |> Enum.reverse()
+    |> Enum.join(",")
+  end
+
+  defp execute({_reg_a, _reg_b, _reg_c, code}, code_pointer, output)
+       when code_pointer >= length(code) do
+    output
+  end
+
+  defp execute({reg_a, reg_b, reg_c, code}, code_pointer, output) do
+    [opcode, operand] = Enum.slice(code, code_pointer..(code_pointer + 1))
+
+    case run_instruction(opcode, operand, {reg_a, reg_b, reg_c, code}, output, code_pointer) do
+      {:jump, {program_memory, output, new_pointer}} ->
+        execute(program_memory, new_pointer, output)
+
+      {program_memory, output, pointer} ->
+        execute(program_memory, pointer + 2, output)
+    end
+  end
+
+  defp run_instruction(0, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    reg_a = div(reg_a, Integer.pow(2, combo_value(operand, {reg_a, reg_b, reg_c})))
+    {{reg_a, reg_b, reg_c, code}, output, pointer}
+  end
+
+  defp run_instruction(1, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    reg_b = bxor(reg_b, operand)
+    {{reg_a, reg_b, reg_c, code}, output, pointer}
+  end
+
+  defp run_instruction(2, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    {{reg_a, rem(combo_value(operand, {reg_a, reg_b, reg_c}), 8), reg_c, code}, output, pointer}
+  end
+
+  defp run_instruction(3, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    if reg_a == 0 do
+      {{reg_a, reg_b, reg_c, code}, output, pointer}
+    else
+      {:jump, {{reg_a, reg_b, reg_c, code}, output, operand}}
+    end
+  end
+
+  defp run_instruction(4, _operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    reg_b = bxor(reg_b, reg_c)
+    {{reg_a, reg_b, reg_c, code}, output, pointer}
+  end
+
+  defp run_instruction(5, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    {{reg_a, reg_b, reg_c, code}, [rem(combo_value(operand, {reg_a, reg_b, reg_c}), 8) | output],
+     pointer}
+  end
+
+  defp run_instruction(6, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    reg_b = div(reg_a, Integer.pow(2, combo_value(operand, {reg_a, reg_b, reg_c})))
+    {{reg_a, reg_b, reg_c, code}, output, pointer}
+  end
+
+  defp run_instruction(7, operand, {reg_a, reg_b, reg_c, code}, output, pointer) do
+    reg_c = div(reg_a, Integer.pow(2, combo_value(operand, {reg_a, reg_b, reg_c})))
+    {{reg_a, reg_b, reg_c, code}, output, pointer}
+  end
+
+  defp combo_value(value, {reg_a, reg_b, reg_c}) when value in [0, 1, 2, 3, 4, 5, 6] do
+    case value do
+      0 -> 0
+      1 -> 1
+      2 -> 2
+      3 -> 3
+      4 -> reg_a
+      5 -> reg_b
+      6 -> reg_c
+    end
+  end
+
+  def find_correct_a(input) do
+    {_reg_a, _reg_b, _reg_c, program} = parse_input(input)
+    solve_backward(program) |> Enum.min()
+  end
+
+  defp solve_backward(program) do
+    Enum.reduce(1..length(program), [0], fn outputs, possible_as ->
+      target_output =
+        program
+        |> Enum.reverse()
+        |> Enum.slice(0, outputs)
+
+      result =
+        possible_as
+        |> Enum.map(fn possible_a ->
+          Enum.reduce(0..7, [], fn a, new_possibles ->
+            new_a = possible_a * 8 + a
+
+            output =
+              execute({new_a, 0, 0, program}, 0, [])
+              |> Enum.take(outputs)
+
+            if output == target_output do
+              [new_a | new_possibles]
+            else
+              new_possibles
+            end
+          end)
+        end)
+        |> List.flatten()
+
+      result
+    end)
+  end
+
+  defp parse_input(input) do
+    [reg_a, reg_b, reg_c, code] =
+      Regex.run(
+        ~r/Register A: (\d+)\nRegister B: (\d+)\nRegister C: (\d+)\n\nProgram: ([\d,]+)/,
+        input,
+        capture: :all_but_first
+      )
+
+    {String.to_integer(reg_a), String.to_integer(reg_b), String.to_integer(reg_c),
+     String.split(code, ",", trim: true) |> Enum.map(&String.to_integer(&1))}
+  end
+end
+
+ChronospatialComputer.solve(input) |> IO.inspect()
+ChronospatialComputer.find_correct_a(input) |> IO.inspect()
+```

@@ -1,0 +1,134 @@
+# Day 18: RAM Run
+
+```elixir
+Mix.install([:kino])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("input")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+defmodule RAMRun do
+  def solve_part1(input) do
+    grid = grid(70, 70, Enum.take(parse_input(input), 1024))
+
+    start = {0, 0}
+    goal = {70, 70}
+
+    queue = :queue.from_list([{start, [start]}])
+    visited = MapSet.new([start])
+
+    (bfs(queue, visited, goal, grid) |> Enum.count()) - 1
+  end
+
+  def solve_part2(input) do
+    start = {0, 0}
+    goal = {70, 70}
+
+    queue = :queue.from_list([{start, [start]}])
+    visited = MapSet.new([start])
+    bytes = parse_input(input)
+
+    first_byte_pos = bin_search(queue, visited, goal, bytes, 0, length(bytes) - 1)
+    {x, y} = Enum.at(bytes, first_byte_pos)
+    "#{x},#{y}"
+  end
+
+  defp bin_search(_queue, _visited, _goal, _bytes, left, right) when left >= right,
+    do: left
+
+  defp bin_search(queue, visited, {size_x, size_y} = goal, bytes, left, right) do
+    mid = div(left + right + 1, 2)
+    grid = grid(size_x, size_y, Enum.take(bytes, mid))
+
+    case bfs(queue, visited, goal, grid) do
+      nil ->
+        bin_search(queue, visited, goal, bytes, left, mid - 1)
+
+      _result ->
+        bin_search(queue, visited, goal, bytes, mid, right)
+    end
+  end
+
+  defp parse_input(input) do
+    String.split(input, "\n", trim: true)
+    |> Enum.map(fn item ->
+      [x, y] = String.split(item, ",")
+      {String.to_integer(x), String.to_integer(y)}
+    end)
+  end
+
+  defp grid(size_x, size_y, bytes) do
+    for x <- 0..size_x, y <- 0..size_y, into: %{} do
+      if {x, y} in bytes do
+        {{x, y}, "#"}
+      else
+        {{x, y}, "."}
+      end
+    end
+  end
+
+  defp get_max_length(grid) do
+    {{x, _}, _} = Enum.max_by(grid, fn {{x, _}, _} -> x end)
+    {{_, y}, _} = Enum.max_by(grid, fn {{_, y}, _} -> y end)
+    {x, y}
+  end
+
+  defp bfs({[], []}, _visited, _goal, _grid), do: nil
+
+  defp bfs(queue, visited, goal, grid) do
+    {{:value, {current, path}}, queue} = :queue.out(queue)
+
+    cond do
+      current == goal ->
+        path
+
+      true ->
+        map_size = get_max_length(grid)
+        next_moves = get_valid_moves(current, grid, visited, map_size)
+
+        {new_queue, new_visited} =
+          Enum.reduce(next_moves, {queue, visited}, fn move, {q, v} ->
+            new_path = path ++ [move]
+            {:queue.in({move, new_path}, q), MapSet.put(v, move)}
+          end)
+
+        bfs(new_queue, new_visited, goal, grid)
+    end
+  end
+
+  def is_valid_position?({x, y}, grid, visited, {max_x, max_y} = _map_size) do
+    cond do
+      x < 0 or y < 0 -> false
+      x > max_x -> false
+      y > max_y -> false
+      MapSet.member?(visited, {x, y}) -> false
+      Map.get(grid, {x, y}) == "#" -> false
+      true -> true
+    end
+  end
+
+  def get_valid_moves({x, y}, grid, visited, map_size) do
+    [{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}]
+    |> Enum.filter(fn pos -> is_valid_position?(pos, grid, visited, map_size) end)
+  end
+end
+
+RAMRun.solve_part1(input) |> IO.inspect()
+RAMRun.solve_part2(input) |> IO.inspect()
+```
+
+```elixir
+mid = div(0 + 100 + 1, 2)
+IO.inspect(mid)
+IO.inspect({0, mid - 1})
+```
